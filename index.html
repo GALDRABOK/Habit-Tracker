@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Pit Stop Tracker | Global Rivalry</title>
+    <!-- Tailwind CSS Engine -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Custom Style Layout Elements -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="theme-audi bg-[#050505] text-[#f0f0f0] min-h-screen overflow-x-hidden flex flex-col font-sans">
+
+    <!-- DYNAMIC GLOWING BACKGROUND -->
+    <div id="bg-container" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[98vw] max-w-[1400px] z-0 pointer-events-none flex justify-center items-center"></div>
+
+    <div class="dashboard-container max-w-[95vw] mx-auto p-5 flex-grow flex flex-col relative z-10">
+        
+        <!-- ADJUSTED SETTINGS BAR -->
+        <div class="top-bar flex justify-between items-center flex-wrap gap-4 p-4 md:px-6 mb-5 bg-[#0a0a0a]/90 border-b-2 border-[var(--active-color)] rounded-lg shadow-2xl transition-[border-color] duration-500">
+            <div class="driver-controls flex items-center gap-5 flex-wrap">
+                <div class="control-group flex items-center gap-2">
+                    <span class="control-label text-[#888] text-xs uppercase font-bold">Viewing Driver:</span>
+                    <select id="driver-roster-select" onchange="switchViewedDriver()" class="bg-white/10 border border-[#444] text-white py-2 px-3 rounded font-bold uppercase cursor-pointer outline-none border-[var(--active-color)] [&>option]:bg-[#111] [&>option]:text-white text-lg">
+                        <!-- Dynamic Friend List -->
+                    </select>
+                </div>
+                <div class="control-group flex items-center gap-2">
+                    <span class="control-label text-[#888] text-xs uppercase font-bold">Your Unique ID:</span>
+                    <input type="text" id="my-driver-id" placeholder="e.g. lewis44" onchange="updateYourID()" class="bg-white/10 border border-[#444] text-white py-2 px-3 rounded font-bold uppercase w-[140px]">
+                </div>
+                <div class="control-group flex items-center gap-2">
+                    <span class="control-label text-[#888] text-xs uppercase font-bold">Team:</span>
+                    <select id="team-select" onchange="handleUIProfileUpdate()" class="bg-white/10 border border-[#444] text-white py-2 px-3 rounded font-bold uppercase cursor-pointer outline-none border-[var(--active-color)] [&>option]:bg-[#111] [&>option]:text-white text-lg">
+                        <option value="audi">Audi</option>
+                        <option value="mclaren">McLaren</option>
+                    </select>
+                </div>
+                <div class="control-group flex items-center gap-2">
+                    <span class="control-label text-[#888] text-xs uppercase font-bold">Name:</span>
+                    <input type="text" id="driver-name" placeholder="Name" oninput="handleUIProfileUpdate()" class="bg-white/10 border border-[#444] text-white py-2 px-3 rounded font-bold uppercase w-[140px]">
+                </div>
+                <div class="control-group flex items-center gap-2">
+                    <span class="control-label text-[#888] text-xs uppercase font-bold">No:</span>
+                    <input type="number" id="driver-number" min="1" max="99" placeholder="--" oninput="handleUIProfileUpdate()" class="bg-white/10 border border-[#444] text-white py-2 px-3 rounded font-bold uppercase w-12 text-center">
+                </div>
+            </div>
+
+            <div class="top-right-controls flex gap-7 items-center flex-wrap">
+                <div class="clocks flex gap-5 font-mono text-base">
+                    <div class="clock-item text-center"><div class="text-[0.7rem] uppercase tracking-wider text-[#888]">Bengaluru</div><div id="tz-blr">00:00:00</div></div>
+                    <div class="clock-item text-center"><div class="text-[0.7rem] uppercase tracking-wider text-[#888]">Hinwil</div><div id="tz-hin">00:00:00</div></div>
+                    <div class="clock-item text-center"><div class="text-[0.7rem] uppercase tracking-wider text-[#888]">London</div><div id="tz-lon">00:00:00</div></div>
+                </div>
+                <button class="bg-[#222] border border-[#444] text-white py-2 px-4 cursor-pointer font-bold rounded uppercase transition-colors duration-300 hover:bg-[#333]" onclick="syncCloudData()">☁️ Sync Now</button>
+                <button class="bg-[var(--active-color)] text-white py-2 px-4 cursor-pointer font-bold rounded uppercase transition-colors duration-300" onclick="toggleArchiveView()">View Archive</button>
+            </div>
+        </div>
+
+        <!-- MAIN TRACKER VIEW -->
+        <div id="main-view" class="block">
+            <div class="header text-center mb-4">
+                <h1 id="telemetry-header" class="text-5xl font-extrabold uppercase tracking-widest drop-shadow-[2px_2px_5px_rgba(0,0,0,1)]">Audi F1 Telemetry</h1>
+                <div class="text-xl font-bold tracking-wider uppercase mt-1 transition-colors duration-500 text-[var(--active-color)]" id="month-display"></div>
+            </div>
+
+            <div class="quote-box p-6 rounded-lg my-4 mx-auto max-w-[1000px] bg-black/70 border-l-6 border-[var(--active-color)] italic text-white text-center text-4xl leading-snug shadow-2xl transition-[border-color] duration-500" id="quote-box">Loading Team Radio...</div>
+
+            <div class="goals-container flex flex-col md:flex-row gap-5 mb-8">
+                <div class="goal-box flex-1 bg-[#0f0f0f]/85 p-4 border-l-4 border-[var(--active-color)] rounded shadow-xl transition-[border-color] duration-500">
+                    <h3 class="mt-0 uppercase text-sm text-[#ddd] font-bold mb-2">🏆 Weekly Championship Goal</h3>
+                    <textarea id="weekly-goal" rows="3" oninput="handleUIProfileUpdate()" class="w-full bg-black/30 border border-[#444] text-white p-2 rounded resize-y outline-none focus:border-[var(--active-color)]"></textarea>
+                </div>
+                <div class="goal-box flex-1 bg-[#0f0f0f]/85 p-4 border-l-4 border-[var(--active-color)] rounded shadow-xl transition-[border-color] duration-500">
+                    <h3 class="mt-0 uppercase text-sm text-[#ddd] font-bold mb-2">🏆 Monthly Championship Goal</h3>
+                    <textarea id="monthly-goal" rows="3" oninput="handleUIProfileUpdate()" class="w-full bg-black/30 border border-[#444] text-white p-2 rounded resize-y outline-none focus:border-[var(--active-color)]"></textarea>
+                </div>
+            </div>
+
+            <div class="table-responsive w-full overflow-x-auto bg-[#0f0f0f]/85 rounded-lg shadow-3xl mb-8 backdrop-blur-md">
+                <table class="tracker-grid w-max min-w-full border-collapse" id="habit-table">
+                    <thead><tr id="table-header-row"></tr></thead>
+                    <tbody id="habit-body"></tbody>
+                </table>
+            </div>
+
+            <button class="btn-add bg-[var(--active-color)] text-white border-none py-4 px-8 text-lg cursor-pointer uppercase font-bold mx-auto mb-10 block rounded shadow-lg transition-colors duration-300" id="add-habit-btn" onclick="addHabit()">+ Add Sector to Track</button>
+        </div>
+
+        <!-- ARCHIVE VIEW -->
+        <div id="archive-view" class="hidden">
+            <div class="header text-center mb-4">
+                <h1 class="text-5xl font-extrabold uppercase tracking-widest drop-shadow-[2px_2px_5px_rgba(0,0,0,1)]">Telemetry Archive</h1>
+                <div class="text-xl font-bold tracking-wider uppercase mt-1 text-[var(--active-color)]" id="archive-driver-display"></div>
+            </div>
+            <div class="archive-list" id="archive-list"></div>
+            <button class="btn-add bg-[var(--active-color)] text-white border-none py-4 px-8 text-lg cursor-pointer uppercase font-bold mx-auto mb-10 block rounded shadow-lg transition-colors duration-300" onclick="toggleArchiveView()">Back to Track</button>
+        </div>
+    </div>
+
+    <!-- Application Script Module Injection -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
