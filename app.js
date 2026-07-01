@@ -1,6 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-import { getFirestore, doc, setDoc, onSnapshot, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-analytics.js";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyB67J0LX09zOUENtnUw_n5JJLDV7OQb7xg",
@@ -14,11 +13,10 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const dbFS = getFirestore(app);
-const analytics = getAnalytics(app);
 
-let currentUserId = localStorage.getItem('f1_driver_uid') || "driver1";
+let currentUserId = localStorage.getItem('f1_auth_uid') || null;
 let viewedUserId = currentUserId; 
-let globalRoster = [currentUserId];
+let globalRoster = [];
 
 const today = new Date();
 const currentYear = today.getFullYear();
@@ -28,9 +26,8 @@ const monthKey = `${currentYear}-${monthNames[currentMonth]}`;
 const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
 let driverData = {
-    activeTeam: 'audi',
-    name: '', number: '', weeklyGoal: '', monthlyGoal: '', 
-    habits: [], archive: {}, lastMonthKey: monthKey
+    passcode: '', activeTeam: 'audi', name: '', number: '', 
+    weeklyGoal: '', monthlyGoal: '', habits: [], archive: {}, lastMonthKey: monthKey
 };
 
 const teamData = {
@@ -38,7 +35,6 @@ const teamData = {
     mclaren: { color: 'var(--mclaren-orange)', svg: `<svg viewBox="0 0 350 150" class="background-rings"><path d="M 30,120 C 120,40 240,20 320,60 C 350,90 280,140 230,110 C 180,90 100,90 30,120 Z" /></svg>` }
 };
 
-document.getElementById('my-driver-id').value = currentUserId;
 document.getElementById('month-display').innerText = `${monthNames[currentMonth]} ${currentYear} TRACK`;
 
 function updateClocks() {
@@ -50,6 +46,86 @@ function updateClocks() {
 }
 setInterval(updateClocks, 1000); updateClocks();
 
+// --- AUTHENTICATION INTERACTION MATRIX ---
+window.switchAuthTab = function(type) {
+    document.getElementById('tab-login').classList.toggle('active', type === 'login');
+    document.getElementById('tab-register').classList.toggle('active', type === 'register');
+    document.getElementById('form-login').style.display = type === 'login' ? 'flex' : 'none';
+    document.getElementById('form-register').style.display = type === 'register' ? 'flex' : 'none';
+    document.getElementById('auth-msg').innerText = '';
+}
+
+window.handleRegistration = async function() {
+    const id = document.getElementById('reg-id').value.trim().toLowerCase();
+    const name = document.getElementById('reg-name').value.trim();
+    const number = document.getElementById('reg-number').value.trim();
+    const pass = document.getElementById('reg-pass').value.trim();
+    const msg = document.getElementById('auth-msg');
+
+    if(!id || !name || !number || !pass) { msg.innerText = "Error: Complete all diagnostic fields."; return; }
+
+    try {
+        const docRef = doc(dbFS, "f1_trackers", id);
+        const docSnap = await getDoc(docRef);
+        
+        if(docSnap.exists()) { msg.innerText = "Error: Driver ID already claimed on grid."; return; }
+
+        driverData = {
+            passcode: pass, activeTeam: 'audi', name: name, number: number,
+            weeklyGoal: '', monthlyGoal: '', habits: [], archive: {}, lastMonthKey: monthKey
+        };
+
+        await setDoc(docRef, driverData);
+        loginUserSuccess(id);
+    } catch(e) { msg.innerText = "Connection lost during registration."; }
+}
+
+window.handleLogin = async function() {
+    const id = document.getElementById('login-id').value.trim().toLowerCase();
+    const pass = document.getElementById('login-pass').value.trim();
+    const msg = document.getElementById('auth-msg');
+
+    if(!id || !pass) { msg.innerText = "Enter ID and passcode."; return; }
+
+    try {
+        const docSnap = await getDoc(doc(dbFS, "f1_trackers", id));
+        if(!docSnap.exists()) { msg.innerText = "Driver signature not found."; return; }
+        
+        const data = docSnap.data();
+        if(data.passcode !== pass) { msg.innerText = "Authentication failed: Invalid Passcode."; return; }
+
+        loginUserSuccess(id);
+    } catch(e) { msg.innerText = "Database connection error."; }
+}
+
+function loginUserSuccess(id) {
+    currentUserId = id;
+    viewedUserId = id;
+    localStorage.setItem('f1_auth_uid', id);
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('app-dashboard').style.display = 'flex';
+    
+    if(currentUserId === 'admin') {
+        document.getElementById('admin-panel-btn').style.display = 'block';
+    } else {
+        document.getElementById('admin-panel-btn').style.display = 'none';
+    }
+
+    setupLiveSync(id);
+    loadGlobalRoster();
+}
+
+window.handleLogout = function() {
+    currentUserId = null; viewedUserId = null;
+    localStorage.removeItem('f1_auth_uid');
+    if(unsubscribeDriverDoc) unsubscribeDriverDoc();
+    document.getElementById('app-dashboard').style.display = 'none';
+    document.getElementById('auth-gate').style.display = 'block';
+    document.getElementById('login-id').value = '';
+    document.getElementById('login-pass').value = '';
+}
+
+// --- TELEMETRY ENGINE MECHANICS ---
 let unsubscribeDriverDoc = null;
 function setupLiveSync(driverIdToWatch) {
     if (unsubscribeDriverDoc) unsubscribeDriverDoc();
@@ -58,6 +134,7 @@ function setupLiveSync(driverIdToWatch) {
         if (docSnap.exists()) {
             const incoming = docSnap.data();
             driverData = {
+                passcode: incoming.passcode || '',
                 activeTeam: incoming.activeTeam || 'audi',
                 name: incoming.name || '',
                 number: incoming.number || '',
@@ -68,41 +145,26 @@ function setupLiveSync(driverIdToWatch) {
                 lastMonthKey: incoming.lastMonthKey || monthKey
             };
             
-            if (driverData.lastMonthKey !== monthKey) {
+            if (viewedUserId === currentUserId && driverData.lastMonthKey !== monthKey) {
                 driverData.archive[driverData.lastMonthKey] = JSON.parse(JSON.stringify(driverData.habits));
                 driverData.habits.forEach(h => h.doneDays = Array(31).fill(false)); 
                 driverData.lastMonthKey = monthKey;
                 pushDataToCloud();
             }
-        } else {
-            if(driverIdToWatch === currentUserId) {
-                driverData = {
-                    activeTeam: 'audi', name: '', number: '', weeklyGoal: '', monthlyGoal: '', 
-                    habits: [{ name: 'Morning Warmup Run', plannedDaysOfWeek: [true,true,true,true,true,false,false], doneDays: Array(31).fill(false) }], 
-                    archive: {}, lastMonthKey: monthKey
-                };
-                pushDataToCloud();
-            }
+            updateThemeAndUI();
+            renderTable();
         }
-        updateThemeAndUI();
-        renderTable();
     });
 }
 
 async function loadGlobalRoster() {
-    try {
-        const querySnapshot = await getDocs(collection(dbFS, "f1_trackers"));
-        let list = [currentUserId];
-        querySnapshot.forEach((doc) => {
-            if(doc.id && doc.id.trim() !== "") list.push(doc.id);
-        });
-        globalRoster = [...new Set(list)];
-        
-        const dropdown = document.getElementById('driver-roster-select');
-        dropdown.innerHTML = globalRoster.map(id => `<option value="${id}" ${id === viewedUserId ? 'selected' : ''}>${id} ${id === currentUserId ? '(You)' : ''}</option>`).join('');
-    } catch (e) {
-        console.error("Error generating global roster list: ", e);
-    }
+    const querySnapshot = await getDocs(collection(dbFS, "f1_trackers"));
+    let list = [currentUserId];
+    querySnapshot.forEach((doc) => { if(doc.id && doc.id.trim() !== "") list.push(doc.id); });
+    globalRoster = [...new Set(list)];
+    
+    const dropdown = document.getElementById('driver-roster-select');
+    dropdown.innerHTML = globalRoster.map(id => `<option value="${id}" ${id === viewedUserId ? 'selected' : ''}>${id} ${id === currentUserId ? '(You)' : ''}</option>`).join('');
 }
 
 async function pushDataToCloud() {
@@ -110,44 +172,24 @@ async function pushDataToCloud() {
     await setDoc(doc(dbFS, "f1_trackers", currentUserId), driverData);
 }
 
-window.updateYourID = function() {
-    const val = document.getElementById('my-driver-id').value.trim().toLowerCase();
-    if(val) {
-        currentUserId = val;
-        localStorage.setItem('f1_driver_uid', currentUserId);
-        viewedUserId = currentUserId;
-        setupLiveSync(currentUserId);
-        loadGlobalRoster();
-    }
-}
-
 window.switchViewedDriver = function() {
     viewedUserId = document.getElementById('driver-roster-select').value;
     const isReadonly = viewedUserId !== currentUserId;
     document.getElementById('add-habit-btn').style.display = isReadonly ? 'none' : 'block';
-    document.getElementById('driver-name').disabled = isReadonly;
-    document.getElementById('driver-number').disabled = isReadonly;
-    document.getElementById('team-select').disabled = isReadonly;
     document.getElementById('weekly-goal').disabled = isReadonly;
     document.getElementById('monthly-goal').disabled = isReadonly;
-
+    document.getElementById('danger-zone-panel').style.display = isReadonly ? 'none' : 'block';
     setupLiveSync(viewedUserId);
 }
 
 window.handleUIProfileUpdate = function() {
     if(viewedUserId !== currentUserId) return;
-    driverData.activeTeam = document.getElementById('team-select').value;
-    driverData.name = document.getElementById('driver-name').value;
-    driverData.number = document.getElementById('driver-number').value;
     driverData.weeklyGoal = document.getElementById('weekly-goal').value;
     driverData.monthlyGoal = document.getElementById('monthly-goal').value;
     pushDataToCloud();
 }
 
-window.syncCloudData = function() {
-    pushDataToCloud();
-    loadGlobalRoster();
-}
+window.syncCloudData = function() { loadGlobalRoster(); }
 
 function updateThemeAndUI() {
     const teamKey = driverData.activeTeam || 'audi';
@@ -156,12 +198,12 @@ function updateThemeAndUI() {
     document.getElementById('bg-container').innerHTML = teamData[teamKey].svg;
     document.getElementById('telemetry-header').innerText = `${teamKey === 'audi' ? 'Audi' : 'McLaren'} F1 Telemetry`;
     
-    document.getElementById('team-select').value = teamKey;
-    document.getElementById('driver-name').value = driverData.name || '';
-    document.getElementById('driver-number').value = driverData.number || '';
+    document.getElementById('badge-team-name').innerText = teamKey === 'audi' ? 'AUDI F1' : 'MCLAREN';
+    document.getElementById('badge-driver-name').innerText = driverData.name || '--';
+    document.getElementById('badge-driver-num').innerText = driverData.number || '--';
+    
     document.getElementById('weekly-goal').value = driverData.weeklyGoal || '';
     document.getElementById('monthly-goal').value = driverData.monthlyGoal || '';
-    
     document.getElementById('quote-box').innerHTML = `"Leave me alone, I know what to do."<br><span style="font-size:0.4em; color:var(--active-color); display:block; margin-top:10px; font-weight:bold; letter-spacing:1px;">- Kimi Räikkönen</span>`;
 }
 
@@ -182,9 +224,6 @@ function renderTable() {
     const isReadonly = viewedUserId !== currentUserId;
 
     habitsList.forEach((habit, hIndex) => {
-        if(!habit.plannedDaysOfWeek) habit.plannedDaysOfWeek = [false,false,false,false,false,false,false];
-        if(!habit.doneDays) habit.doneDays = Array(31).fill(false);
-
         const tr = document.createElement('tr');
         let plannedCount = 0, completedCountInPlanned = 0, totalCompleted = 0, monthCellsHTML = '';
         
@@ -267,11 +306,105 @@ window.addHabit = function() {
 window.toggleArchiveView = function() {
     const mainView = document.getElementById('main-view');
     const archView = document.getElementById('archive-view');
+    const adminView = document.getElementById('admin-view');
+    adminView.style.display = 'none';
     if (mainView.style.display === 'none') {
         mainView.style.display = 'block'; archView.style.display = 'none';
     } else {
         mainView.style.display = 'none'; archView.style.display = 'block';
         renderArchive();
+    }
+}
+
+// --- DATA EXPORT BACKUP ENGINE ---
+window.downloadDriverTelemetry = function() {
+    if (!currentUserId || viewedUserId !== currentUserId) return;
+    
+    const exportPackage = {
+        driverId: currentUserId,
+        meta: {
+            exportedAt: new Date().toISOString(),
+            driverName: driverData.name || 'Anonymous',
+            racingNumber: driverData.number || '--'
+        },
+        telemetry: {
+            currentHabits: driverData.habits || [],
+            monthlyGoals: { weekly: driverData.weeklyGoal, monthly: driverData.monthlyGoal },
+            historicalArchive: driverData.archive || {}
+        }
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportPackage, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `f1_telemetry_${currentUserId}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+};
+
+// --- DESTRUCTION CRITICAL ACCOUNT ERASURE ENGINE ---
+window.deleteDriverAccount = async function() {
+    if (!currentUserId || viewedUserId !== currentUserId) return;
+
+    const firstCheck = confirm("🚨 RED FLAG: Are you sure you want to delete your profile? This permanently clears your telemetry history off the cloud!");
+    if (!firstCheck) return;
+
+    const finalCheck = confirm("🏁 FINAL CONFIRMATION: Did you remember to download your telemetry backup? Press OK to wipe this record forever.");
+    if (!finalCheck) return;
+
+    try {
+        await deleteDoc(doc(dbFS, "f1_trackers", currentUserId));
+        handleLogout();
+        alert("Account purged successfully. Grid slot cleared.");
+    } catch (e) {
+        console.error("Account erasure failed: ", e);
+        alert("Error: Paddock server rejected data erasure request.");
+    }
+};
+
+// --- ADMINISTRATIVE RACE CONTROL PANEL MATRIX ---
+window.toggleAdminPanelSection = async function() {
+    const mainView = document.getElementById('main-view');
+    const archView = document.getElementById('archive-view');
+    const adminView = document.getElementById('admin-view');
+    archView.style.display = 'none';
+
+    if (adminView.style.display === 'block') {
+        adminView.style.display = 'none';
+        mainView.style.display = 'block';
+    } else {
+        mainView.style.display = 'none';
+        adminView.style.display = 'block';
+        
+        const rosterBody = document.getElementById('admin-roster-body');
+        rosterBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:#ffcc00;">Polling Grid Telemetry Records...</td></tr>`;
+        
+        try {
+            const querySnapshot = await getDocs(collection(dbFS, "f1_trackers"));
+            let html = "";
+            querySnapshot.forEach((docSnap) => {
+                const data = docSnap.data();
+                const driverID = docSnap.id;
+                const dName = data.name || '<span style="color:#666;">No Profile Display Name</span>';
+                const dNum = data.number || '--';
+                const dPass = data.passcode || '<span style="color:#ff4c4c;">None Set</span>';
+                const sectorCount = data.habits ? data.habits.length : 0;
+                
+                html += `
+                    <tr>
+                        <td style="font-family:monospace; font-weight:bold; color:var(--active-color);">${driverID}</td>
+                        <td>${dName}</td>
+                        <td style="font-weight:bold;">#${dNum}</td>
+                        <td style="font-family:monospace; color:#00ff00;">${dPass}</td>
+                        <td>${sectorCount} Sectors</td>
+                    </tr>
+                `;
+            });
+            rosterBody.innerHTML = html;
+        } catch(e) {
+            rosterBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Race Control feed lost: Security query denied.</td></tr>`;
+        }
     }
 }
 
@@ -299,5 +432,5 @@ function renderArchive() {
     list.innerHTML = html;
 }
 
-setupLiveSync(currentUserId);
-loadGlobalRoster();
+if(currentUserId) { loginUserSuccess(currentUserId); }
+else { document.getElementById('auth-gate').style.display = 'block'; }

@@ -3,102 +3,168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F1 Pit Stop Tracker | Global Rivalry</title>
-    <!-- Tailwind CSS Engine -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- Custom Style Layout Elements -->
+    <title>F1 Pit Stop Tracker | Global Grid</title>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="theme-audi bg-[#050505] text-[#f0f0f0] min-h-screen overflow-x-hidden flex flex-col font-sans">
+<body class="theme-audi">
 
-    <!-- DYNAMIC GLOWING BACKGROUND -->
-    <div id="bg-container" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[98vw] max-w-[1400px] z-0 pointer-events-none flex justify-center items-center"></div>
+    <!-- THE GLOWING BACKGROUND (DYNAMIC SVG) -->
+    <div id="bg-container" class="bg-glow-container"></div>
 
-    <div class="dashboard-container max-w-[95vw] mx-auto p-5 flex-grow flex flex-col relative z-10">
+    <!-- GATEWAY AUTH SCREEN -->
+    <div id="auth-gate" class="auth-card">
+        <div class="auth-header">
+            <h2>🏁 PADDOCK ACCESS GATEWAY</h2>
+            <p>Enter your Driver ID and Passcode to sync your telemetry dashboard</p>
+        </div>
         
-        <!-- ADJUSTED SETTINGS BAR -->
-        <div class="top-bar flex justify-between items-center flex-wrap gap-4 p-4 md:px-6 mb-5 bg-[#0a0a0a]/90 border-b-2 border-[var(--active-color)] rounded-lg shadow-2xl transition-[border-color] duration-500">
-            <div class="driver-controls flex items-center gap-5 flex-wrap">
-                <div class="control-group flex items-center gap-2">
-                    <span class="control-label text-[#888] text-xs uppercase font-bold">Viewing Driver:</span>
-                    <select id="driver-roster-select" onchange="switchViewedDriver()" class="bg-white/10 border border-[#444] text-white py-2 px-3 rounded font-bold uppercase cursor-pointer outline-none border-[var(--active-color)] [&>option]:bg-[#111] [&>option]:text-white text-lg">
+        <div class="tabs-container">
+            <button id="tab-login" class="tab-btn active" onclick="switchAuthTab('login')">Driver Login</button>
+            <button id="tab-register" class="tab-btn" onclick="switchAuthTab('register')">New Driver Registration</button>
+        </div>
+
+        <!-- Login Form -->
+        <div id="form-login" class="auth-form">
+            <div class="input-group">
+                <label>Driver ID</label>
+                <input type="text" id="login-id" placeholder="e.g. lewis44" autocomplete="off">
+            </div>
+            <div class="input-group">
+                <label>Secret Passcode</label>
+                <input type="password" id="login-pass" placeholder="••••">
+            </div>
+            <button class="btn-gate" onclick="handleLogin()">Access Telemetry Boards</button>
+        </div>
+
+        <!-- Registration Form -->
+        <div id="form-register" class="auth-form" style="display: none;">
+            <div class="input-group">
+                <label>Choose Desired Driver ID (Unique tag)</label>
+                <input type="text" id="reg-id" placeholder="e.g. lando4" autocomplete="off">
+            </div>
+            <div class="input-group">
+                <label>Display Name</label>
+                <input type="text" id="reg-name" placeholder="Lando Norris">
+            </div>
+            <div class="input-group">
+                <label>Racing Number</label>
+                <input type="number" id="reg-number" min="1" max="99" placeholder="4">
+            </div>
+            <div class="input-group">
+                <label>Set Secure Passcode</label>
+                <input type="password" id="reg-pass" placeholder="Create a code">
+            </div>
+            <button class="btn-gate" onclick="handleRegistration()">Register Grid Seat</button>
+        </div>
+        <div id="auth-msg" class="auth-error-msg"></div>
+    </div>
+
+    <!-- MAIN TRACKER VIEW -->
+    <div id="app-dashboard" class="dashboard-container" style="display: none;">
+        
+        <!-- CONTROL BAR -->
+        <div class="top-bar">
+            <div class="driver-controls">
+                <div class="control-group">
+                    <span class="control-label">Viewing Driver:</span>
+                    <select id="driver-roster-select" onchange="switchViewedDriver()">
                         <!-- Dynamic Friend List -->
                     </select>
                 </div>
-                <div class="control-group flex items-center gap-2">
-                    <span class="control-label text-[#888] text-xs uppercase font-bold">Your Unique ID:</span>
-                    <input type="text" id="my-driver-id" placeholder="e.g. lewis44" onchange="updateYourID()" class="bg-white/10 border border-[#444] text-white py-2 px-3 rounded font-bold uppercase w-[140px]">
-                </div>
-                <div class="control-group flex items-center gap-2">
-                    <span class="control-label text-[#888] text-xs uppercase font-bold">Team:</span>
-                    <select id="team-select" onchange="handleUIProfileUpdate()" class="bg-white/10 border border-[#444] text-white py-2 px-3 rounded font-bold uppercase cursor-pointer outline-none border-[var(--active-color)] [&>option]:bg-[#111] [&>option]:text-white text-lg">
-                        <option value="audi">Audi</option>
-                        <option value="mclaren">McLaren</option>
-                    </select>
-                </div>
-                <div class="control-group flex items-center gap-2">
-                    <span class="control-label text-[#888] text-xs uppercase font-bold">Name:</span>
-                    <input type="text" id="driver-name" placeholder="Name" oninput="handleUIProfileUpdate()" class="bg-white/10 border border-[#444] text-white py-2 px-3 rounded font-bold uppercase w-[140px]">
-                </div>
-                <div class="control-group flex items-center gap-2">
-                    <span class="control-label text-[#888] text-xs uppercase font-bold">No:</span>
-                    <input type="number" id="driver-number" min="1" max="99" placeholder="--" oninput="handleUIProfileUpdate()" class="bg-white/10 border border-[#444] text-white py-2 px-3 rounded font-bold uppercase w-12 text-center">
+                <div class="driver-badge">
+                    <span id="badge-team-name">F1</span> DRIVER: <span id="badge-driver-name">--</span> #<span id="badge-driver-num">--</span>
                 </div>
             </div>
 
-            <div class="top-right-controls flex gap-7 items-center flex-wrap">
-                <div class="clocks flex gap-5 font-mono text-base">
-                    <div class="clock-item text-center"><div class="text-[0.7rem] uppercase tracking-wider text-[#888]">Bengaluru</div><div id="tz-blr">00:00:00</div></div>
-                    <div class="clock-item text-center"><div class="text-[0.7rem] uppercase tracking-wider text-[#888]">Hinwil</div><div id="tz-hin">00:00:00</div></div>
-                    <div class="clock-item text-center"><div class="text-[0.7rem] uppercase tracking-wider text-[#888]">London</div><div id="tz-lon">00:00:00</div></div>
+            <div class="top-right-controls">
+                <div class="clocks">
+                    <div class="clock-item"><div class="clock-label">Bengaluru</div><div id="tz-blr">00:00:00</div></div>
+                    <div class="clock-item"><div class="clock-label">Hinwil</div><div id="tz-hin">00:00:00</div></div>
+                    <div class="clock-item"><div class="clock-label">London</div><div id="tz-lon">00:00:00</div></div>
                 </div>
-                <button class="bg-[#222] border border-[#444] text-white py-2 px-4 cursor-pointer font-bold rounded uppercase transition-colors duration-300 hover:bg-[#333]" onclick="syncCloudData()">☁️ Sync Now</button>
-                <button class="bg-[var(--active-color)] text-white py-2 px-4 cursor-pointer font-bold rounded uppercase transition-colors duration-300" onclick="toggleArchiveView()">View Archive</button>
+                <button class="btn-sync" onclick="syncCloudData()">☁️ Sync Now</button>
+                <button id="admin-panel-btn" class="btn-admin-toggle" style="display: none;" onclick="toggleAdminPanelSection()">🛠️ Race Control</button>
+                <button class="btn-logout" onclick="handleLogout()">🔒 Logout</button>
+                <button class="btn-archive" onclick="toggleArchiveView()">View Archive</button>
             </div>
         </div>
 
-        <!-- MAIN TRACKER VIEW -->
-        <div id="main-view" class="block">
-            <div class="header text-center mb-4">
-                <h1 id="telemetry-header" class="text-5xl font-extrabold uppercase tracking-widest drop-shadow-[2px_2px_5px_rgba(0,0,0,1)]">Audi F1 Telemetry</h1>
-                <div class="text-xl font-bold tracking-wider uppercase mt-1 transition-colors duration-500 text-[var(--active-color)]" id="month-display"></div>
+        <!-- TELEMETRY CONTENT PANELS -->
+        <div id="main-view" style="display: block;">
+            <div class="header">
+                <h1 id="telemetry-header">F1 Telemetry</h1>
+                <div class="month-display" id="month-display"></div>
             </div>
 
-            <div class="quote-box p-6 rounded-lg my-4 mx-auto max-w-[1000px] bg-black/70 border-l-6 border-[var(--active-color)] italic text-white text-center text-4xl leading-snug shadow-2xl transition-[border-color] duration-500" id="quote-box">Loading Team Radio...</div>
+            <div class="quote-box" id="quote-box">Loading Team Radio...</div>
 
-            <div class="goals-container flex flex-col md:flex-row gap-5 mb-8">
-                <div class="goal-box flex-1 bg-[#0f0f0f]/85 p-4 border-l-4 border-[var(--active-color)] rounded shadow-xl transition-[border-color] duration-500">
-                    <h3 class="mt-0 uppercase text-sm text-[#ddd] font-bold mb-2">🏆 Weekly Championship Goal</h3>
-                    <textarea id="weekly-goal" rows="3" oninput="handleUIProfileUpdate()" class="w-full bg-black/30 border border-[#444] text-white p-2 rounded resize-y outline-none focus:border-[var(--active-color)]"></textarea>
+            <div class="goals-container">
+                <div class="goal-box">
+                    <h3>🏆 Weekly Championship Goal</h3>
+                    <textarea id="weekly-goal" rows="3" oninput="handleUIProfileUpdate()"></textarea>
                 </div>
-                <div class="goal-box flex-1 bg-[#0f0f0f]/85 p-4 border-l-4 border-[var(--active-color)] rounded shadow-xl transition-[border-color] duration-500">
-                    <h3 class="mt-0 uppercase text-sm text-[#ddd] font-bold mb-2">🏆 Monthly Championship Goal</h3>
-                    <textarea id="monthly-goal" rows="3" oninput="handleUIProfileUpdate()" class="w-full bg-black/30 border border-[#444] text-white p-2 rounded resize-y outline-none focus:border-[var(--active-color)]"></textarea>
+                <div class="goal-box">
+                    <h3>🏆 Monthly Championship Goal</h3>
+                    <textarea id="monthly-goal" rows="3" oninput="handleUIProfileUpdate()"></textarea>
                 </div>
             </div>
 
-            <div class="table-responsive w-full overflow-x-auto bg-[#0f0f0f]/85 rounded-lg shadow-3xl mb-8 backdrop-blur-md">
-                <table class="tracker-grid w-max min-w-full border-collapse" id="habit-table">
+            <div class="table-responsive">
+                <table class="tracker-grid" id="habit-table">
                     <thead><tr id="table-header-row"></tr></thead>
                     <tbody id="habit-body"></tbody>
                 </table>
             </div>
 
-            <button class="btn-add bg-[var(--active-color)] text-white border-none py-4 px-8 text-lg cursor-pointer uppercase font-bold mx-auto mb-10 block rounded shadow-lg transition-colors duration-300" id="add-habit-btn" onclick="addHabit()">+ Add Sector to Track</button>
+            <button class="btn-add" id="add-habit-btn" onclick="addHabit()">+ Add Sector to Track</button>
+
+            <!-- DANGER ZONE: DATA MANAGEMENT -->
+            <div id="danger-zone-panel" style="margin-top: 60px; padding: 25px; border: 1px dashed #ff4c4c; border-radius: 8px; background: rgba(255, 76, 76, 0.05); text-align: center;">
+                <h3 style="color: #ff4c4c; margin-top: 0; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px;">⚠️ Driver Danger Zone</h3>
+                <p style="color: #aaa; font-size: 0.85em; margin-bottom: 15px;">Want to retire from the season? You can backup your driver history and remove your profile from the paddock registry.</p>
+                <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
+                    <button type="button" style="background: #222; border: 1px solid #555; color: #fff; padding: 10px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; text-transform: uppercase; font-size: 0.8em;" onclick="window.downloadDriverTelemetry()">📥 Download Backup</button>
+                    <button type="button" style="background: #ff4c4c; border: none; color: #fff; padding: 10px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; text-transform: uppercase; font-size: 0.8em;" onclick="window.deleteDriverAccount()">🗑️ Retract Account</button>
+                </div>
+            </div>
         </div>
 
-        <!-- ARCHIVE VIEW -->
-        <div id="archive-view" class="hidden">
-            <div class="header text-center mb-4">
-                <h1 class="text-5xl font-extrabold uppercase tracking-widest drop-shadow-[2px_2px_5px_rgba(0,0,0,1)]">Telemetry Archive</h1>
-                <div class="text-xl font-bold tracking-wider uppercase mt-1 text-[var(--active-color)]" id="archive-driver-display"></div>
+        <!-- ARCHIVE PANEL VIEW -->
+        <div id="archive-view" style="display: none;">
+            <div class="header">
+                <h1>Telemetry Archive</h1>
+                <div class="month-display" id="archive-driver-display"></div>
             </div>
             <div class="archive-list" id="archive-list"></div>
-            <button class="btn-add bg-[var(--active-color)] text-white border-none py-4 px-8 text-lg cursor-pointer uppercase font-bold mx-auto mb-10 block rounded shadow-lg transition-colors duration-300" onclick="toggleArchiveView()">Back to Track</button>
+            <button class="btn-add" onclick="toggleArchiveView()">Back to Track</button>
+        </div>
+
+        <!-- RACE CONTROL ADMIN PANEL VIEW -->
+        <div id="admin-view" style="display: none;">
+            <div class="header">
+                <h1>🏎️ RACE CONTROL PANEL</h1>
+                <div class="month-display" style="color: #ffcc00;">Global Grid Driver Overview & Recovery Passcodes</div>
+            </div>
+            <div class="table-responsive">
+                <table class="tracker-grid" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Driver ID (Login User)</th>
+                            <th>Display Name</th>
+                            <th>Racing Number</th>
+                            <th>Passcode</th>
+                            <th>Tracked Sectors Count</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-roster-body">
+                        <!-- Filled dynamically by database query -->
+                    </tbody>
+                </table>
+            </div>
+            <button class="btn-add" style="background-color: #333;" onclick="toggleAdminPanelSection()">Exit Race Control</button>
         </div>
     </div>
 
-    <!-- Application Script Module Injection -->
     <script type="module" src="app.js"></script>
 </body>
 </html>
