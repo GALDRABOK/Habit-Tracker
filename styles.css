@@ -33,11 +33,11 @@ body, html {
 /* --- ACCESS PORTAL MODULE --- */
 .auth-card {
     position: relative; z-index: 10; width: 100%; max-width: 450px;
-    margin: auto; background: rgba(10, 10, 10, 0.95); padding: 30px;
+    margin: 20px auto; background: rgba(10, 10, 10, 0.95); padding: 30px;
     border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.9);
     border: 2px solid var(--active-color); box-sizing: border-box;
 }
-.auth-header h2 { text-transform: uppercase; tracking: 2px; margin-bottom: 5px; text-align: center;}
+.auth-header h2 { text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; text-align: center;}
 .auth-header p { color: #888; font-size: 0.85em; text-align: center; margin-bottom: 25px;}
 
 .tabs-container { display: flex; border-bottom: 1px solid #333; margin-bottom: 20px; }
@@ -50,11 +50,20 @@ body, html {
 .auth-form { display: flex; flex-direction: column; gap: 15px; }
 .input-group { display: flex; flex-direction: column; gap: 5px; }
 .input-group label { font-size: 0.75em; text-transform: uppercase; font-weight: bold; color: #aaa;}
+
+/* Removed uppercase text-transform here so usernames and credentials can be lowercase */
+select, input[type="text"], input[type="number"], input[type="password"] {
+    background: rgba(255,255,255,0.1); border: 1px solid #444; color: white;
+    padding: 8px 12px; border-radius: 4px; font-family: inherit; font-weight: bold;
+}
+select { outline: none; cursor: pointer; border-color: var(--active-color); text-transform: uppercase; }
+select option { background: #111; color: white; }
+
 .btn-gate {
     background: var(--active-color); color: white; border: none; padding: 14px;
     font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 4px; margin-top: 10px;
 }
-.auth-error-msg { text-align: center; font-size: 0.85em; margin-top: 15px; font-weight: bold; color: #ff4c4c; }
+.auth-error-msg { text-align: center; font-size: 0.9em; margin-top: 15px; font-weight: bold; color: #ff4c4c; padding: 8px; border-radius: 4px; background: rgba(255,76,76,0.1); display: none; }
 
 /* --- DASHBOARD SYSTEM PANEL --- */
 .dashboard-container { max-width: 95vw; margin: 0 auto; padding: 20px; flex-grow: 1; display: flex; flex-direction: column; position: relative; z-index: 1; }
@@ -68,13 +77,6 @@ body, html {
 .control-label { color: #888; font-size: 0.8em; text-transform: uppercase; font-weight: bold; }
 .driver-badge { font-weight: bold; background: rgba(255,255,255,0.1); padding: 8px 15px; border-radius: 4px; border: 1px solid #444; text-transform: uppercase; letter-spacing: 1px;}
 .driver-badge span { color: var(--active-color); }
-
-select, input[type="text"], input[type="number"], input[type="password"] {
-    background: rgba(255,255,255,0.1); border: 1px solid #444; color: white;
-    padding: 8px 12px; border-radius: 4px; font-family: inherit; font-weight: bold; text-transform: uppercase;
-}
-select { outline: none; cursor: pointer; border-color: var(--active-color); }
-select option { background: #111; color: white; }
 
 .top-right-controls { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
 .clocks { display: flex; gap: 20px; font-family: monospace; font-size: 1em; margin-right: 10px;}

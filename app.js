@@ -46,13 +46,24 @@ function updateClocks() {
 }
 setInterval(updateClocks, 1000); updateClocks();
 
+function displayAuthError(message) {
+    const errorBox = document.getElementById('auth-msg');
+    if (message) {
+        errorBox.innerText = message;
+        errorBox.style.display = 'block';
+    } else {
+        errorBox.innerText = '';
+        errorBox.style.display = 'none';
+    }
+}
+
 // --- AUTHENTICATION INTERACTION MATRIX ---
 window.switchAuthTab = function(type) {
     document.getElementById('tab-login').classList.toggle('active', type === 'login');
     document.getElementById('tab-register').classList.toggle('active', type === 'register');
     document.getElementById('form-login').style.display = type === 'login' ? 'flex' : 'none';
     document.getElementById('form-register').style.display = type === 'register' ? 'flex' : 'none';
-    document.getElementById('auth-msg').innerText = '';
+    displayAuthError(null);
 }
 
 window.handleRegistration = async function() {
@@ -60,15 +71,15 @@ window.handleRegistration = async function() {
     const name = document.getElementById('reg-name').value.trim();
     const number = document.getElementById('reg-number').value.trim();
     const pass = document.getElementById('reg-pass').value.trim();
-    const msg = document.getElementById('auth-msg');
 
-    if(!id || !name || !number || !pass) { msg.innerText = "Error: Complete all diagnostic fields."; return; }
+    if(!id || !name || !number || !pass) { displayAuthError("⚠️ Complete all diagnostic registry fields."); return; }
+    displayAuthError(null);
 
     try {
         const docRef = doc(dbFS, "f1_trackers", id);
         const docSnap = await getDoc(docRef);
         
-        if(docSnap.exists()) { msg.innerText = "Error: Driver ID already claimed on grid."; return; }
+        if(docSnap.exists()) { displayAuthError("❌ Driver ID already claimed on grid."); return; }
 
         driverData = {
             passcode: pass, activeTeam: 'audi', name: name, number: number,
@@ -77,25 +88,34 @@ window.handleRegistration = async function() {
 
         await setDoc(docRef, driverData);
         loginUserSuccess(id);
-    } catch(e) { msg.innerText = "Connection lost during registration."; }
+    } catch(e) { displayAuthError("💥 Database connection error while writing profile."); }
 }
 
 window.handleLogin = async function() {
     const id = document.getElementById('login-id').value.trim().toLowerCase();
     const pass = document.getElementById('login-pass').value.trim();
-    const msg = document.getElementById('auth-msg');
 
-    if(!id || !pass) { msg.innerText = "Enter ID and passcode."; return; }
+    if(!id || !pass) { displayAuthError("⚠️ Enter both your Driver ID and Passcode."); return; }
+    displayAuthError(null);
 
     try {
         const docSnap = await getDoc(doc(dbFS, "f1_trackers", id));
-        if(!docSnap.exists()) { msg.innerText = "Driver signature not found."; return; }
+        
+        if(!docSnap.exists()) { 
+            displayAuthError("❌ Access Denied: Driver ID not found."); 
+            return; 
+        }
         
         const data = docSnap.data();
-        if(data.passcode !== pass) { msg.innerText = "Authentication failed: Invalid Passcode."; return; }
+        if(data.passcode !== pass) { 
+            displayAuthError("❌ Access Denied: Incorrect Password."); 
+            return; 
+        }
 
         loginUserSuccess(id);
-    } catch(e) { msg.innerText = "Database connection error."; }
+    } catch(e) { 
+        displayAuthError("💥 Database connection error. Check internet connection."); 
+    }
 }
 
 function loginUserSuccess(id) {
@@ -104,6 +124,7 @@ function loginUserSuccess(id) {
     localStorage.setItem('f1_auth_uid', id);
     document.getElementById('auth-gate').style.display = 'none';
     document.getElementById('app-dashboard').style.display = 'flex';
+    displayAuthError(null);
     
     if(currentUserId === 'admin') {
         document.getElementById('admin-panel-btn').style.display = 'block';
@@ -123,6 +144,7 @@ window.handleLogout = function() {
     document.getElementById('auth-gate').style.display = 'block';
     document.getElementById('login-id').value = '';
     document.getElementById('login-pass').value = '';
+    displayAuthError(null);
 }
 
 // --- TELEMETRY ENGINE MECHANICS ---
@@ -158,13 +180,15 @@ function setupLiveSync(driverIdToWatch) {
 }
 
 async function loadGlobalRoster() {
-    const querySnapshot = await getDocs(collection(dbFS, "f1_trackers"));
-    let list = [currentUserId];
-    querySnapshot.forEach((doc) => { if(doc.id && doc.id.trim() !== "") list.push(doc.id); });
-    globalRoster = [...new Set(list)];
-    
-    const dropdown = document.getElementById('driver-roster-select');
-    dropdown.innerHTML = globalRoster.map(id => `<option value="${id}" ${id === viewedUserId ? 'selected' : ''}>${id} ${id === currentUserId ? '(You)' : ''}</option>`).join('');
+    try {
+        const querySnapshot = await getDocs(collection(dbFS, "f1_trackers"));
+        let list = [currentUserId];
+        querySnapshot.forEach((doc) => { if(doc.id && doc.id.trim() !== "") list.push(doc.id); });
+        globalRoster = [...new Set(list)];
+        
+        const dropdown = document.getElementById('driver-roster-select');
+        dropdown.innerHTML = globalRoster.map(id => `<option value="${id}" ${id === viewedUserId ? 'selected' : ''}>${id} ${id === currentUserId ? '(You)' : ''}</option>`).join('');
+    } catch(e) { console.error("Could not fetch grid roster updates."); }
 }
 
 async function pushDataToCloud() {
@@ -358,8 +382,7 @@ window.deleteDriverAccount = async function() {
         handleLogout();
         alert("Account purged successfully. Grid slot cleared.");
     } catch (e) {
-        console.error("Account erasure failed: ", e);
-        alert("Error: Paddock server rejected data erasure request.");
+        displayAuthError("💥 Server rejected data erasure request.");
     }
 };
 
@@ -393,10 +416,10 @@ window.toggleAdminPanelSection = async function() {
                 
                 html += `
                     <tr>
-                        <td style="font-family:monospace; font-weight:bold; color:var(--active-color);">${driverID}</td>
-                        <td>${dName}</td>
+                        <td style="font-family:monospace; font-weight:bold; color:var(--active-color); text-transform:none;">${driverID}</td>
+                        <td style="text-transform:none;">${dName}</td>
                         <td style="font-weight:bold;">#${dNum}</td>
-                        <td style="font-family:monospace; color:#00ff00;">${dPass}</td>
+                        <td style="font-family:monospace; color:#00ff00; text-transform:none;">${dPass}</td>
                         <td>${sectorCount} Sectors</td>
                     </tr>
                 `;
