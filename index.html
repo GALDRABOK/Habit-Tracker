@@ -8,10 +8,8 @@
 </head>
 <body class="theme-audi">
 
-    <!-- THE GLOWING BACKGROUND (DYNAMIC SVG) -->
     <div id="bg-container" class="bg-glow-container"></div>
 
-    <!-- GATEWAY AUTH SCREEN -->
     <div id="auth-gate" class="auth-card">
         <div class="auth-header">
             <h2>🏁 PADDOCK ACCESS GATEWAY</h2>
@@ -23,7 +21,6 @@
             <button id="tab-register" class="tab-btn" onclick="switchAuthTab('register')">New Driver Registration</button>
         </div>
 
-        <!-- Login Form -->
         <div id="form-login" class="auth-form">
             <div class="input-group">
                 <label>Driver ID</label>
@@ -36,7 +33,6 @@
             <button class="btn-gate" onclick="handleLogin()">Access Telemetry Boards</button>
         </div>
 
-        <!-- Registration Form -->
         <div id="form-register" class="auth-form" style="display: none;">
             <div class="input-group">
                 <label>Choose Desired Driver ID (Unique tag)</label>
@@ -59,17 +55,14 @@
         <div id="auth-msg" class="auth-error-msg"></div>
     </div>
 
-    <!-- MAIN TRACKER VIEW -->
     <div id="app-dashboard" class="dashboard-container" style="display: none;">
         
-        <!-- CONTROL BAR -->
         <div class="top-bar">
             <div class="driver-controls">
                 <div class="control-group">
                     <span class="control-label">Viewing Driver:</span>
                     <select id="driver-roster-select" onchange="switchViewedDriver()">
-                        <!-- Dynamic Friend List -->
-                    </select>
+                        </select>
                 </div>
                 <div class="driver-badge">
                     <span id="badge-team-name">F1</span> DRIVER: <span id="badge-driver-name">--</span> #<span id="badge-driver-num">--</span>
@@ -89,7 +82,6 @@
             </div>
         </div>
 
-        <!-- TELEMETRY CONTENT PANELS -->
         <div id="main-view" style="display: block;">
             <div class="header">
                 <h1 id="telemetry-header">F1 Telemetry</h1>
@@ -118,7 +110,6 @@
 
             <button class="btn-add" id="add-habit-btn" onclick="addHabit()">+ Add Sector to Track</button>
 
-            <!-- DANGER ZONE: DATA MANAGEMENT -->
             <div id="danger-zone-panel" style="margin-top: 60px; padding: 25px; border: 1px dashed #ff4c4c; border-radius: 8px; background: rgba(255, 76, 76, 0.05); text-align: center;">
                 <h3 style="color: #ff4c4c; margin-top: 0; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px;">⚠️ Driver Danger Zone</h3>
                 <p style="color: #aaa; font-size: 0.85em; margin-bottom: 15px;">Want to retire from the season? You can backup your driver history and remove your profile from the paddock registry.</p>
@@ -129,7 +120,6 @@
             </div>
         </div>
 
-        <!-- ARCHIVE PANEL VIEW -->
         <div id="archive-view" style="display: none;">
             <div class="header">
                 <h1>Telemetry Archive</h1>
@@ -139,7 +129,6 @@
             <button class="btn-add" onclick="toggleArchiveView()">Back to Track</button>
         </div>
 
-        <!-- RACE CONTROL ADMIN PANEL VIEW -->
         <div id="admin-view" style="display: none;">
             <div class="header">
                 <h1>🏎️ RACE CONTROL PANEL</h1>
@@ -157,8 +146,7 @@
                         </tr>
                     </thead>
                     <tbody id="admin-roster-body">
-                        <!-- Filled dynamically by database query -->
-                    </tbody>
+                        </tbody>
                 </table>
             </div>
             <button class="btn-add" style="background-color: #333;" onclick="toggleAdminPanelSection()">Exit Race Control</button>

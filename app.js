@@ -1,14 +1,14 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
+// Your web app's Firebase configuration for pitstop-tracker-3
 const firebaseConfig = {
-    apiKey: "AIzaSyB67J0LX09zOUENtnUw_n5JJLDV7OQb7xg",
-    authDomain: "pitstop-tracker-1.firebaseapp.com",
-    projectId: "pitstop-tracker-1",
-    storageBucket: "pitstop-tracker-1.firebasestorage.app",
-    messagingSenderId: "497933964321",
-    appId: "1:497933964321:web:9ae8916a5b2a9ae328bf60",
-    measurementId: "G-MNKKS9VZE8"
+    apiKey: "AIzaSyCY2KAkDat-AwUJzf4aeqIxMAX80Tb5PUI",
+    authDomain: "pitstop-tracker-3.firebaseapp.com",
+    projectId: "pitstop-tracker-3",
+    storageBucket: "pitstop-tracker-3.firebasestorage.app",
+    messagingSenderId: "668134386135",
+    appId: "1:668134386135:web:493d503718860350d78392"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -48,12 +48,14 @@ setInterval(updateClocks, 1000); updateClocks();
 
 function displayAuthError(message) {
     const errorBox = document.getElementById('auth-msg');
-    if (message) {
-        errorBox.innerText = message;
-        errorBox.style.display = 'block';
-    } else {
-        errorBox.innerText = '';
-        errorBox.style.display = 'none';
+    if (errorBox) {
+        if (message) {
+            errorBox.innerText = message;
+            errorBox.style.display = 'block';
+        } else {
+            errorBox.innerText = '';
+            errorBox.style.display = 'none';
+        }
     }
 }
 
@@ -248,6 +250,13 @@ function renderTable() {
     const isReadonly = viewedUserId !== currentUserId;
 
     habitsList.forEach((habit, hIndex) => {
+        if (!habit.plannedDaysOfWeek || !Array.isArray(habit.plannedDaysOfWeek)) {
+            habit.plannedDaysOfWeek = [false, false, false, false, false, false, false];
+        }
+        if (!habit.doneDays || !Array.isArray(habit.doneDays)) {
+            habit.doneDays = Array(31).fill(false);
+        }
+
         const tr = document.createElement('tr');
         let plannedCount = 0, completedCountInPlanned = 0, totalCompleted = 0, monthCellsHTML = '';
         

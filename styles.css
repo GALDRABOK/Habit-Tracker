@@ -51,7 +51,6 @@ body, html {
 .input-group { display: flex; flex-direction: column; gap: 5px; }
 .input-group label { font-size: 0.75em; text-transform: uppercase; font-weight: bold; color: #aaa;}
 
-/* Removed uppercase text-transform here so usernames and credentials can be lowercase */
 select, input[type="text"], input[type="number"], input[type="password"] {
     background: rgba(255,255,255,0.1); border: 1px solid #444; color: white;
     padding: 8px 12px; border-radius: 4px; font-family: inherit; font-weight: bold;
