@@ -2,7 +2,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/fireba
 import { getFirestore, doc, setDoc, onSnapshot, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-analytics.js";
 
-// Your verified web app's Firebase configuration
 const firebaseConfig = {
     apiKey: "AIzaSyB67J0LX09zOUENtnUw_n5JJLDV7OQb7xg",
     authDomain: "pitstop-tracker-1.firebaseapp.com",
@@ -13,12 +12,10 @@ const firebaseConfig = {
     measurementId: "G-MNKKS9VZE8"
 };
 
-// Initialize Firebase Core Engine Services
 const app = initializeApp(firebaseConfig);
 const dbFS = getFirestore(app);
 const analytics = getAnalytics(app);
 
-// Core Architecture Context Variables
 let currentUserId = localStorage.getItem('f1_driver_uid') || "driver1";
 let viewedUserId = currentUserId; 
 let globalRoster = [currentUserId];
@@ -36,17 +33,14 @@ let driverData = {
     habits: [], archive: {}, lastMonthKey: monthKey
 };
 
-// SVG Assets
 const teamData = {
     audi: { color: 'var(--audi-red)', svg: `<svg viewBox="0 0 350 150" class="background-rings"><circle cx="75" cy="75" r="50"/><circle cx="140" cy="75" r="50"/><circle cx="205" cy="75" r="50"/><circle cx="270" cy="75" r="50"/></svg>` },
     mclaren: { color: 'var(--mclaren-orange)', svg: `<svg viewBox="0 0 350 150" class="background-rings"><path d="M 30,120 C 120,40 240,20 320,60 C 350,90 280,140 230,110 C 180,90 100,90 30,120 Z" /></svg>` }
 };
 
-// Initialization Setup Hook bounds
 document.getElementById('my-driver-id').value = currentUserId;
 document.getElementById('month-display').innerText = `${monthNames[currentMonth]} ${currentYear} TRACK`;
 
-// World Race Clocks Engine Tracker
 function updateClocks() {
     const now = new Date();
     const options = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
@@ -56,17 +50,25 @@ function updateClocks() {
 }
 setInterval(updateClocks, 1000); updateClocks();
 
-// Subscription management
 let unsubscribeDriverDoc = null;
 function setupLiveSync(driverIdToWatch) {
     if (unsubscribeDriverDoc) unsubscribeDriverDoc();
 
     unsubscribeDriverDoc = onSnapshot(doc(dbFS, "f1_trackers", driverIdToWatch), (docSnap) => {
         if (docSnap.exists()) {
-            driverData = docSnap.data();
+            const incoming = docSnap.data();
+            driverData = {
+                activeTeam: incoming.activeTeam || 'audi',
+                name: incoming.name || '',
+                number: incoming.number || '',
+                weeklyGoal: incoming.weeklyGoal || '',
+                monthlyGoal: incoming.monthlyGoal || '',
+                habits: incoming.habits || [],
+                archive: incoming.archive || {},
+                lastMonthKey: incoming.lastMonthKey || monthKey
+            };
             
-            if (driverData.lastMonthKey && driverData.lastMonthKey !== monthKey) {
-                if(!driverData.archive) driverData.archive = {};
+            if (driverData.lastMonthKey !== monthKey) {
                 driverData.archive[driverData.lastMonthKey] = JSON.parse(JSON.stringify(driverData.habits));
                 driverData.habits.forEach(h => h.doneDays = Array(31).fill(false)); 
                 driverData.lastMonthKey = monthKey;
@@ -88,15 +90,19 @@ function setupLiveSync(driverIdToWatch) {
 }
 
 async function loadGlobalRoster() {
-    const querySnapshot = await getDocs(collection(dbFS, "f1_trackers"));
-    let list = [currentUserId];
-    querySnapshot.forEach((doc) => {
-        if(doc.id !== currentUserId) list.push(doc.id);
-    });
-    globalRoster = [...new Set(list)];
-    
-    const dropdown = document.getElementById('driver-roster-select');
-    dropdown.innerHTML = globalRoster.map(id => `<option value="${id}" ${id === viewedUserId ? 'selected' : ''}>${id} ${id === currentUserId ? '(You)' : ''}</option>`).join('');
+    try {
+        const querySnapshot = await getDocs(collection(dbFS, "f1_trackers"));
+        let list = [currentUserId];
+        querySnapshot.forEach((doc) => {
+            if(doc.id && doc.id.trim() !== "") list.push(doc.id);
+        });
+        globalRoster = [...new Set(list)];
+        
+        const dropdown = document.getElementById('driver-roster-select');
+        dropdown.innerHTML = globalRoster.map(id => `<option value="${id}" ${id === viewedUserId ? 'selected' : ''}>${id} ${id === currentUserId ? '(You)' : ''}</option>`).join('');
+    } catch (e) {
+        console.error("Error generating global roster list: ", e);
+    }
 }
 
 async function pushDataToCloud() {
@@ -161,26 +167,32 @@ function updateThemeAndUI() {
 
 function renderTable() {
     const headerRow = document.getElementById('table-header-row');
+    if (!headerRow) return;
+    
     let headerHTML = `<th class="habit-name">Sector (Habit)</th><th class="plan-col">Target Plan</th>`;
     for(let i=1; i<=daysInMonth; i++) headerHTML += `<th class="day-col">${i}</th>`;
     headerHTML += `<th class="stats-col">Race Pace</th><th class="pts-col">Points</th>`;
     headerRow.innerHTML = headerHTML;
 
     const tbody = document.getElementById('habit-body');
+    if (!tbody) return;
     tbody.innerHTML = '';
     
-    if(!driverData.habits) driverData.habits = [];
+    const habitsList = driverData.habits || [];
     const isReadonly = viewedUserId !== currentUserId;
 
-    driverData.habits.forEach((habit, hIndex) => {
+    habitsList.forEach((habit, hIndex) => {
+        if(!habit.plannedDaysOfWeek) habit.plannedDaysOfWeek = [false,false,false,false,false,false,false];
+        if(!habit.doneDays) habit.doneDays = Array(31).fill(false);
+
         const tr = document.createElement('tr');
         let plannedCount = 0, completedCountInPlanned = 0, totalCompleted = 0, monthCellsHTML = '';
         
         for(let d=1; d<=daysInMonth; d++) {
             let date = new Date(currentYear, currentMonth, d);
             let uiDay = (date.getDay() === 0 ? 6 : date.getDay() - 1);
-            let isPlanned = habit.plannedDaysOfWeek[uiDay];
-            let isDone = habit.doneDays[d-1];
+            let isPlanned = habit.plannedDaysOfWeek[uiDay] || false;
+            let isDone = habit.doneDays[d-1] || false;
             
             if (isPlanned) plannedCount++;
             if (isDone) { totalCompleted++; if (isPlanned) completedCountInPlanned++; }
@@ -202,24 +214,24 @@ function renderTable() {
         let bonus = totalCompleted - completedCountInPlanned;
         let ptsDisplay = (basePts + bonus) + (bonus > 0 ? ` <span style="font-size:0.6em; color:#00ff00;">(+${bonus})</span>` : '');
 
-        let plannedHTML = '<div class="planned-days flex justify-center gap-1">';
+        let plannedHTML = '<div class="planned-days">';
         ['M','T','W','T','F','S','S'].forEach((dayText, i) => {
-            plannedHTML += `<div class="day-toggle w-5 h-5 rounded-full border border-[#666] flex items-center justify-center text-[0.75rem] text-[#aaa] cursor-pointer transition-all duration-200 ${habit.plannedDaysOfWeek[i] ? 'bg-[var(--active-color)] text-white border-[var(--active-color)] font-bold active' : ''}" style="${isReadonly ? 'pointer-events:none;' : ''}" onclick="window.togglePlannedDay(${hIndex}, ${i})">${dayText}</div>`;
+            plannedHTML += `<div class="day-toggle ${habit.plannedDaysOfWeek[i] ? 'active' : ''}" style="${isReadonly ? 'pointer-events:none;' : ''}" onclick="window.togglePlannedDay(${hIndex}, ${i})">${dayText}</div>`;
         });
         plannedHTML += '</div>';
 
         tr.innerHTML = `
             <td class="habit-name">
-                <input type="text" value="${habit.name}" ${isReadonly ? 'disabled' : ''} onchange="window.updateHabitName(${hIndex}, this.value)" placeholder="Enter habit..." class="w-[80%] bg-transparent text-white border border-[#555] p-2 rounded">
-                ${!isReadonly ? `<span class="del-btn cursor-pointer text-[var(--active-color)] ml-2 font-bold text-lg" onclick="window.deleteHabit(${hIndex})">🗑️</span>` : ''}
+                <input type="text" value="${habit.name || ''}" ${isReadonly ? 'disabled' : ''} onchange="window.updateHabitName(${hIndex}, this.value)" placeholder="Enter habit...">
+                ${!isReadonly ? `<span class="del-btn" onclick="window.deleteHabit(${hIndex})">🗑️</span>` : ''}
             </td>
             <td>${plannedHTML}</td>
             ${monthCellsHTML}
-            <td class="stats-col font-bold min-w-[120px]" style="color: ${posColor}">
+            <td class="stats-col" style="color: ${posColor}">
                 ${pos} (${percent}%)
-                <div class="progress-track w-full h-2 bg-[#222] rounded relative mt-1"><div class="progress-fill h-full rounded transition-[width] duration-400 ease-in-out" style="width:${percent}%; background: ${posColor}"></div></div>
+                <div class="progress-track"><div class="progress-fill" style="width:${percent}%; background: ${posColor}"></div></div>
             </td>
-            <td class="pts-col min-w-[80px] text-xl font-bold text-white">${ptsDisplay}</td>
+            <td class="pts-col">${ptsDisplay}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -247,6 +259,7 @@ window.deleteHabit = function(hIndex) {
 
 window.addHabit = function() {
     if (viewedUserId !== currentUserId) return;
+    if (!driverData.habits) driverData.habits = [];
     driverData.habits.push({ name: '', plannedDaysOfWeek: [false,false,false,false,false,false,false], doneDays: Array(31).fill(false) });
     pushDataToCloud();
 }
@@ -254,12 +267,10 @@ window.addHabit = function() {
 window.toggleArchiveView = function() {
     const mainView = document.getElementById('main-view');
     const archView = document.getElementById('archive-view');
-    if (mainView.classList.contains('hidden')) {
-        mainView.classList.remove('hidden'); mainView.classList.add('block');
-        archView.classList.remove('block'); archView.classList.add('hidden');
+    if (mainView.style.display === 'none') {
+        mainView.style.display = 'block'; archView.style.display = 'none';
     } else {
-        mainView.classList.remove('block'); mainView.classList.add('hidden');
-        archView.classList.remove('hidden'); archView.classList.add('block');
+        mainView.style.display = 'none'; archView.style.display = 'block';
         renderArchive();
     }
 }
@@ -270,7 +281,7 @@ function renderArchive() {
     document.getElementById('archive-driver-display').innerText = `Data for ${driverDisplay}`;
     
     if (!driverData.archive || Object.keys(driverData.archive).length === 0) {
-        list.innerHTML = "<p class='text-center text-[#888]'>No past performances recorded yet.</p>";
+        list.innerHTML = "<p style='text-align:center; color:#888;'>No past performances recorded yet.</p>";
         return;
     }
     
@@ -278,8 +289,8 @@ function renderArchive() {
     for (const [key, oldHabits] of Object.entries(driverData.archive)) {
         html += `<div class="archive-data"><h3>🏎️ ${key}</h3><ul>`;
         oldHabits.forEach(h => {
-            if (h.name.trim() !== '') {
-                let totalDone = h.doneDays.filter(Boolean).length;
+            if (h.name && h.name.trim() !== '') {
+                let totalDone = (h.doneDays || []).filter(Boolean).length;
                 html += `<li><strong>${h.name}</strong>: Completed ${totalDone} laps.</li>`;
             }
         });
@@ -288,6 +299,5 @@ function renderArchive() {
     list.innerHTML = html;
 }
 
-// Initialize Global Engine Bounds
 setupLiveSync(currentUserId);
 loadGlobalRoster();
